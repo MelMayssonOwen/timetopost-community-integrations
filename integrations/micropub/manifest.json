@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "micropub",
+  "name": "Micropub site",
+  "tagline": "Publish to any self-hosted site that speaks the W3C Micropub standard.",
+  "siteUrl": "https://indieweb.org/Micropub",
+  "category": "blog",
+  "maintainer": { "github": "MelMayssonOwen", "firstParty": true },
+  "content": { "format": "article", "maxChars": 100000 },
+  "api": { "instance": { "label": "Micropub endpoint", "placeholder": "https://example.com/micropub" } },
+  "connect": {
+    "secret": {
+      "label": "Bearer token",
+      "help": "An IndieAuth or app token from your site, with the create scope."
+    },
+    "fields": []
+  },
+  "auth": { "header": "Authorization", "prefix": "Bearer " },
+  "verify": { "method": "GET", "path": "?q=config", "status": [200] },
+  "publish": {
+    "method": "POST",
+    "path": "",
+    "json": {
+      "type": ["h-entry"],
+      "properties": { "name": ["{{post.title}}"], "content": ["{{post.body}}"], "category": "{{post.tags}}" }
+    },
+    "status": [201, 202],
+    "result": { "urlHeader": "Location" }
+  }
+}

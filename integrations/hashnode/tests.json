@@ -1,0 +1,38 @@
+[
+  {
+    "name": "verifies the token",
+    "action": "verify",
+    "input": { "secret": "tok_123", "config": { "publicationId": "65a1b2c3d4e5f6a7b8c9d0e1" } },
+    "expectRequest": {
+      "method": "POST",
+      "url": "https://gql-beta.hashnode.com/",
+      "headers": { "Authorization": "Bearer tok_123" },
+      "json": { "query": "query { me { id username } }" }
+    },
+    "response": { "status": 200, "body": { "data": { "me": { "id": "u1", "username": "maker" } } } },
+    "expectResult": { "ok": true, "accountId": "u1", "accountName": "maker" }
+  },
+  {
+    "name": "treats a GraphQL auth error as a bad credential",
+    "action": "verify",
+    "input": { "secret": "bad", "config": { "publicationId": "65a1b2c3d4e5f6a7b8c9d0e1" } },
+    "response": { "status": 200, "body": { "errors": [{ "message": "You must be logged in" }], "data": { "me": null } } },
+    "expectResult": { "ok": false, "reason": "auth" }
+  },
+  {
+    "name": "publishes an article",
+    "action": "publish",
+    "input": { "secret": "tok_123", "config": { "publicationId": "65a1b2c3d4e5f6a7b8c9d0e1" }, "text": "My title\n\nThe body.", "tags": [] },
+    "expectRequest": {
+      "method": "POST",
+      "url": "https://gql-beta.hashnode.com/",
+      "headers": { "Authorization": "Bearer tok_123" },
+      "json": {
+        "query": "mutation PublishPost($input: PublishPostInput!) { publishPost(input: $input) { post { id url } } }",
+        "variables": { "input": { "publicationId": "65a1b2c3d4e5f6a7b8c9d0e1", "title": "My title", "contentMarkdown": "The body." } }
+      }
+    },
+    "response": { "status": 200, "body": { "data": { "publishPost": { "post": { "id": "p1", "url": "https://maker.hashnode.dev/my-title" } } } } },
+    "expectResult": { "ok": true, "postId": "p1", "url": "https://maker.hashnode.dev/my-title" }
+  }
+]

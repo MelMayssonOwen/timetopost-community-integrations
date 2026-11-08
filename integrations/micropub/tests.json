@@ -1,0 +1,23 @@
+[
+  {
+    "name": "verifies against the user's endpoint",
+    "action": "verify",
+    "input": { "secret": "tok", "config": {}, "instanceUrl": "https://blog.example.com/micropub" },
+    "expectRequest": { "method": "GET", "url": "https://blog.example.com/micropub?q=config", "headers": { "Authorization": "Bearer tok" } },
+    "response": { "status": 200, "body": {} },
+    "expectResult": { "ok": true }
+  },
+  {
+    "name": "publishes an article and leaves empty tags out",
+    "action": "publish",
+    "input": { "secret": "tok", "config": {}, "instanceUrl": "https://blog.example.com/micropub", "text": "A title\n\nThe body.", "tags": [] },
+    "expectRequest": {
+      "method": "POST",
+      "url": "https://blog.example.com/micropub",
+      "headers": { "Authorization": "Bearer tok" },
+      "json": { "type": ["h-entry"], "properties": { "name": ["A title"], "content": ["The body."] } }
+    },
+    "response": { "status": 201, "headers": { "location": "/posts/a-title" }, "body": {} },
+    "expectResult": { "ok": true, "postId": "https://blog.example.com/posts/a-title", "url": "https://blog.example.com/posts/a-title" }
+  }
+]

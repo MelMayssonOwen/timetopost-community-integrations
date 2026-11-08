@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "hashnode",
+  "name": "Hashnode",
+  "tagline": "Publish Markdown articles to your Hashnode blog. Needs a Hashnode Pro plan for API access.",
+  "siteUrl": "https://hashnode.com",
+  "category": "blog",
+  "maintainer": { "github": "MelMayssonOwen", "firstParty": true },
+  "content": { "format": "article", "maxChars": 90000 },
+  "api": { "host": "gql-beta.hashnode.com" },
+  "connect": {
+    "secret": {
+      "label": "Personal access token",
+      "help": "Create one in Hashnode under Account settings, Developer. API access needs a Pro plan on your publication.",
+      "helpUrl": "https://hashnode.com/settings/developer"
+    },
+    "fields": [
+      {
+        "key": "publicationId",
+        "label": "Publication ID",
+        "help": "The 24 character ID in your publication's dashboard URL.",
+        "required": true,
+        "pattern": "^[a-fA-F0-9]{24}$"
+      }
+    ]
+  },
+  "auth": { "header": "Authorization", "prefix": "Bearer " },
+  "verify": {
+    "method": "POST",
+    "path": "",
+    "json": { "query": "query { me { id username } }" },
+    "status": [200],
+    "errorPath": "errors",
+    "result": { "accountId": "data.me.id", "accountName": "data.me.username" }
+  },
+  "publish": {
+    "method": "POST",
+    "path": "",
+    "json": {
+      "query": "mutation PublishPost($input: PublishPostInput!) { publishPost(input: $input) { post { id url } } }",
+      "variables": {
+        "input": {
+          "publicationId": "{{config.publicationId}}",
+          "title": "{{post.title}}",
+          "contentMarkdown": "{{post.body}}"
+        }
+      }
+    },
+    "status": [200],
+    "errorPath": "errors",
+    "result": { "postId": "data.publishPost.post.id", "url": "data.publishPost.post.url" }
+  }
+}

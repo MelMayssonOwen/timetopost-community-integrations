@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "your-site",
+  "name": "Your Site",
+  "tagline": "One plain sentence about what people publish on your site.",
+  "siteUrl": "https://your-site.example.com",
+  "category": "blog",
+  "maintainer": { "github": "your-github-username" },
+  "backlink": { "page": "https://your-site.example.com/integrations" },
+  "content": { "format": "article", "maxChars": 50000 },
+  "api": { "host": "api.your-site.example.com" },
+  "connect": {
+    "secret": {
+      "label": "API key",
+      "help": "Where a user finds this key on your site.",
+      "helpUrl": "https://your-site.example.com/settings/api"
+    },
+    "fields": []
+  },
+  "auth": { "header": "Authorization", "prefix": "Bearer " },
+  "verify": {
+    "method": "GET",
+    "path": "/v1/me",
+    "status": [200],
+    "result": { "accountId": "id", "accountName": "username" }
+  },
+  "publish": {
+    "method": "POST",
+    "path": "/v1/posts",
+    "json": { "title": "{{post.title}}", "markdown": "{{post.body}}", "tags": "{{post.tags}}" },
+    "status": [201],
+    "result": { "postId": "id", "url": "url" }
+  }
+}

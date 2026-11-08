@@ -1,0 +1,30 @@
+[
+  {
+    "name": "verifies the token",
+    "action": "verify",
+    "input": { "secret": "tok_abc", "config": {} },
+    "expectRequest": { "method": "GET", "url": "https://micro.blog/micropub?q=config", "headers": { "Authorization": "Bearer tok_abc" } },
+    "response": { "status": 200, "body": { "destination": [{ "uid": "https://maker.micro.blog/", "name": "maker.micro.blog" }] } },
+    "expectResult": { "ok": true, "accountName": "maker.micro.blog" }
+  },
+  {
+    "name": "reports a rejected token",
+    "action": "verify",
+    "input": { "secret": "bad", "config": {} },
+    "response": { "status": 401, "body": {} },
+    "expectResult": { "ok": false, "reason": "auth" }
+  },
+  {
+    "name": "publishes a short post and reads the Location header",
+    "action": "publish",
+    "input": { "secret": "tok_abc", "config": {}, "text": "Shipped the new thing today.", "tags": ["indie"] },
+    "expectRequest": {
+      "method": "POST",
+      "url": "https://micro.blog/micropub",
+      "headers": { "Authorization": "Bearer tok_abc" },
+      "json": { "type": ["h-entry"], "properties": { "content": ["Shipped the new thing today."], "category": ["indie"] } }
+    },
+    "response": { "status": 202, "headers": { "Location": "https://maker.micro.blog/2026/11/08/shipped.html" }, "body": {} },
+    "expectResult": { "ok": true, "postId": "https://maker.micro.blog/2026/11/08/shipped.html", "url": "https://maker.micro.blog/2026/11/08/shipped.html" }
+  }
+]

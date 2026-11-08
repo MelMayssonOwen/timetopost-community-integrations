@@ -1,0 +1,36 @@
+name: Backlink recheck
+
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  recheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check every listing
+        run: node scripts/recheck-backlinks.ts . > report.md
+      - name: Open or update the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          number=$(gh issue list --label backlink-lost --state open --json number --jq '.[0].number // empty')
+          if [ -s report.md ]; then
+            if [ -n "$number" ]; then gh issue edit "$number" --body-file report.md
+            else gh issue create --title "Listings with a missing backlink" --label backlink-lost --body-file report.md; fi
+          elif [ -n "$number" ]; then
+            gh issue close "$number" --comment "All backlinks are back."
+          fi

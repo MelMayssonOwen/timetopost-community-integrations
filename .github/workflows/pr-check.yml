@@ -1,0 +1,47 @@
+name: PR check
+
+# pull_request_target runs this file from the base branch, so a contributor
+# cannot edit the checks. The pull request is checked out as plain data: nothing
+# from it is executed, nothing is installed, and the token below is read-only.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the trusted checks
+        uses: actions/checkout@v4
+        with:
+          path: base
+          persist-credentials: false
+      - name: Check out the pull request as data
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: List changed files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename' > changed.txt
+      - name: Validate the adapter, run its tests, verify the backlink
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
+        run: node base/scripts/check-pr.ts base pr changed.txt

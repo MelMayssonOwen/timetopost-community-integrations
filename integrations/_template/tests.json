@@ -1,0 +1,23 @@
+[
+  {
+    "name": "verifies the key",
+    "action": "verify",
+    "input": { "secret": "test-key", "config": {} },
+    "expectRequest": { "method": "GET", "url": "https://api.your-site.example.com/v1/me", "headers": { "Authorization": "Bearer test-key" } },
+    "response": { "status": 200, "body": { "id": "42", "username": "maker" } },
+    "expectResult": { "ok": true, "accountId": "42", "accountName": "maker" }
+  },
+  {
+    "name": "publishes a post",
+    "action": "publish",
+    "input": { "secret": "test-key", "config": {}, "text": "A title\n\nThe body.", "tags": ["launch"] },
+    "expectRequest": {
+      "method": "POST",
+      "url": "https://api.your-site.example.com/v1/posts",
+      "headers": { "Authorization": "Bearer test-key" },
+      "json": { "title": "A title", "markdown": "The body.", "tags": ["launch"] }
+    },
+    "response": { "status": 201, "body": { "id": "99", "url": "https://your-site.example.com/p/99" } },
+    "expectResult": { "ok": true, "postId": "99", "url": "https://your-site.example.com/p/99" }
+  }
+]

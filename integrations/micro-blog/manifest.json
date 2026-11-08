@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "micro-blog",
+  "name": "Micro.blog",
+  "tagline": "Post to your Micro.blog timeline and hosted blog.",
+  "siteUrl": "https://micro.blog",
+  "category": "social",
+  "maintainer": { "github": "MelMayssonOwen", "firstParty": true },
+  "content": { "format": "text", "maxChars": 50000 },
+  "api": { "host": "micro.blog" },
+  "connect": {
+    "secret": {
+      "label": "App token",
+      "help": "Generate one in Micro.blog under Account, App tokens.",
+      "helpUrl": "https://micro.blog/account/apps"
+    },
+    "fields": []
+  },
+  "auth": { "header": "Authorization", "prefix": "Bearer " },
+  "verify": {
+    "method": "GET",
+    "path": "/micropub?q=config",
+    "status": [200],
+    "result": { "accountName": "destination.0.name" }
+  },
+  "publish": {
+    "method": "POST",
+    "path": "/micropub",
+    "json": {
+      "type": ["h-entry"],
+      "properties": { "content": ["{{post.text}}"], "category": "{{post.tags}}" }
+    },
+    "status": [201, 202],
+    "result": { "urlHeader": "Location" }
+  }
+}

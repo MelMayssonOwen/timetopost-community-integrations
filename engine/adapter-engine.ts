@@ -115,6 +115,8 @@ export function safePattern(pattern: unknown): pattern is string {
   if (/\\[1-9]|\(\?[=!<]/.test(pattern)) return false;
   // Any group that is itself quantified is refused: the classic catastrophic shape.
   if (/\)\s*[*+?{]/.test(pattern)) return false;
+  // Adjacent variable quantifiers backtrack combinatorially. Two stay polynomial on a 500 character value.
+  if ((pattern.match(/[*+?]|\{\d+,\d*\}/g)?.length ?? 0) > 2) return false;
   try { new RegExp(pattern); return true; } catch { return false; }
 }
 
@@ -212,6 +214,7 @@ export function validateManifest(input: unknown): string[] {
   if (!isRecord(api) || ('host' in api) === ('instance' in api)) add('api must have exactly one of host or instance');
   else if ('host' in api) {
     if (typeof api.host !== 'string' || !HOST.test(api.host)) add('api.host must be a lowercase public hostname');
+    else if (site && !sameSite(api.host, site.hostname)) add('api.host must be on the same site as siteUrl');
   } else if (!isRecord(api.instance) || !text(api.instance.label, 60) || !httpsUrl(api.instance.placeholder)) add('api.instance needs a label and an https placeholder');
 
   const fieldKeys = new Set<string>();
@@ -253,7 +256,7 @@ export function normalizeConnection(manifest: Manifest, input: { secret: unknown
   for (const field of manifest.connect.fields) {
     const value = typeof raw[field.key] === 'string' ? (raw[field.key] as string).trim() : '';
     if (!value) { if (field.required) return { ok: false, error: `${field.label} is required.` }; continue; }
-    if (value.length > 500 || /[\u0000-\u001f\u007f]/.test(value) || (field.pattern && !new RegExp(field.pattern).test(value))) return { ok: false, error: `${field.label} is not valid.` };
+    if (value === '.' || value === '..' || value.length > 500 || /[\u0000-\u001f\u007f]/.test(value) || (field.pattern && !new RegExp(field.pattern).test(value))) return { ok: false, error: `${field.label} is not valid.` };
     config[field.key] = value;
   }
   const connection: ConnectionInput = { secret: input.secret.trim(), config };
@@ -407,7 +410,8 @@ export function parsePublishResponse(manifest: Manifest, response: WireResponse,
   if (response.status === 0 || response.status >= 500) return { ok: false, reason: 'unknown_outcome' };
   if (response.status === 401 || response.status === 403) return { ok: false, reason: 'auth' };
   if (response.status === 429) return { ok: false, reason: 'rate_limited' };
-  if (!statuses(manifest.publish).includes(response.status)) return { ok: false, reason: 'rejected' };
+  // Only a 4xx is a definite refusal. A redirect or unlisted 2xx may have created the post.
+  if (!statuses(manifest.publish).includes(response.status)) return { ok: false, reason: response.status >= 400 && response.status < 500 ? 'rejected' : 'unknown_outcome' };
   const json = parseJson(response.body);
   if (manifest.publish.errorPath && read(json, manifest.publish.errorPath)) return { ok: false, reason: 'rejected' };
   const result = manifest.publish.result;
@@ -423,21 +427,24 @@ export function parsePublishResponse(manifest: Manifest, response: WireResponse,
 const SVG_ELEMENTS = new Set(['svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline', 'defs', 'lineargradient', 'radialgradient', 'stop', 'title', 'desc', 'clippath', 'mask']);
 const SVG_MAX_BYTES = 50_000;
 
-/** Logos are served from timetopost.co, so an allowlist is the only safe rule. */
+/** Logos are served from timetopost.co, so anything not on the allowlist is refused. */
 export function validateSvg(svg: string): string[] {
   const errors: string[] = [];
   if (Buffer.byteLength(svg, 'utf8') > SVG_MAX_BYTES) errors.push('logo.svg must be under 50 KB');
-  if (!/^\s*(<\?xml[^>]*\?>\s*)?<svg[\s>]/i.test(svg)) errors.push('logo.svg must start with an <svg> element');
-  if (/<!|<\?(?!xml)|&#|&[a-z]+;/i.test(svg.replace(/^\s*<\?xml[^>]*\?>/i, ''))) errors.push('logo.svg cannot contain entities, doctypes, comments or processing instructions');
-  for (const match of svg.matchAll(/<\s*\/?\s*([a-zA-Z][\w:.-]*)/g)) {
-    if (!SVG_ELEMENTS.has(match[1].toLowerCase())) errors.push(`logo.svg cannot use <${match[1]}>`);
+  const body = svg.replace(/^\s*<\?xml version="1\.[01]"( encoding="UTF-8")?\?>/i, '');
+  if (!/^\s*<svg[\s>]/i.test(body)) errors.push('logo.svg must start with an <svg> element');
+  if (/<[!?]|&#|&[a-z]+;/i.test(body)) errors.push('logo.svg cannot contain entities, doctypes, comments or processing instructions');
+  // Every "<" must open or close an allowlisted element. Nothing else may contain one.
+  for (const match of body.matchAll(/</g)) {
+    const name = /^\/?([a-zA-Z][a-zA-Z0-9]*)(?=[\s/>])/.exec(body.slice(match.index + 1, match.index + 40))?.[1];
+    if (!name || !SVG_ELEMENTS.has(name.toLowerCase())) errors.push(`logo.svg cannot use the element at offset ${match.index}`);
   }
-  if (/[\s/"']on[a-z]+\s*=/i.test(svg)) errors.push('logo.svg cannot use event handler attributes');
-  for (const tag of svg.matchAll(/<[a-zA-Z](?:"[^"]*"|'[^']*'|[^'">])*>/g)) {
+  if (/[\s/"']on[a-z]+\s*=/i.test(body)) errors.push('logo.svg cannot use event handler attributes');
+  for (const tag of body.matchAll(/<[a-zA-Z](?:"[^"]*"|'[^']*'|[^'">])*>/g)) {
     for (const attr of tag[0].matchAll(/[\s/"']([a-zA-Z_:][\w:.-]*)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/g)) {
       const name = attr[1].toLowerCase();
       const value = attr[2].replace(/^['"]|['"]$/g, '');
-      if (name.startsWith('on') || name === 'href' || name.endsWith(':href') || name === 'style' || name === 'src') errors.push(`logo.svg cannot use the ${attr[1]} attribute`);
+      if (name.startsWith('on') || name === 'href' || name.endsWith(':href') || name === 'style' || name === 'src' || name.startsWith('xmlns:')) errors.push(`logo.svg cannot use the ${attr[1]} attribute`);
       if (/url\(\s*(?!['"]?#)/i.test(value) || /javascript:|data:/i.test(value)) errors.push('logo.svg cannot reference external resources');
     }
   }

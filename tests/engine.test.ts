@@ -59,6 +59,8 @@ test('dangerous manifests are refused', () => {
     ['proto key', m => { m.publish.json = JSON.parse('{"__proto__":{"a":1}}'); }],
     ['delete method', m => { m.publish.method = 'DELETE'; }],
     ['redos pattern', m => { m.connect.fields = [{ key: 'a', label: 'A', required: true, pattern: '^(a+)+$' }]; }],
+    ['adjacent quantifiers', m => { m.connect.fields = [{ key: 'a', label: 'A', required: true, pattern: '^[a-z]*[a-z]*[a-z]*$' }]; }],
+    ['api host off site', m => { m.api = { host: 'keys.evil.example.net' }; }],
     ['no backlink', m => { delete m.maintainer.firstParty; }],
     ['backlink elsewhere', m => { delete m.maintainer.firstParty; m.backlink = { page: 'https://other.example.org/' }; m.siteUrl = 'https://mine.example.com'; }],
   ];
@@ -75,6 +77,12 @@ test('instance addresses must be plain https', () => {
   for (const bad of ['http://a.com', 'https://u:p@a.com', 'https://a.com:8443', 'https://a.com/?x=1', 'https://localhost/x']) assert.equal(normalizeInstanceUrl(bad), null, bad);
 });
 
+test('dot segments cannot be used in config values', () => {
+  const manifest = base() as any;
+  manifest.connect.fields = [{ key: 'a', label: 'A', required: true }];
+  assert.equal(normalizeConnection(manifest, { secret: 'x', config: { a: '..' }, instanceUrl: connection.instanceUrl }).ok, false);
+});
+
 test('a secret with a line break is refused', () => {
   const result = normalizeConnection(base(), { secret: 'a\r\nX-Evil: 1', config: {}, instanceUrl: connection.instanceUrl });
   assert.equal(result.ok, false);
@@ -87,6 +95,8 @@ test('publish outcomes that may have landed are never reported as plain failures
   assert.deepEqual(parsePublishResponse(manifest, { status: 503, headers: {}, body: '' }, url), { ok: false, reason: 'unknown_outcome' });
   assert.deepEqual(parsePublishResponse(manifest, { status: 201, headers: {}, body: '' }, url), { ok: false, reason: 'unknown_outcome' });
   assert.deepEqual(parsePublishResponse(manifest, { status: 400, headers: {}, body: '' }, url), { ok: false, reason: 'rejected' });
+  assert.deepEqual(parsePublishResponse(manifest, { status: 302, headers: {}, body: '' }, url), { ok: false, reason: 'unknown_outcome' });
+  assert.deepEqual(parsePublishResponse(manifest, { status: 200, headers: {}, body: '' }, url), { ok: false, reason: 'unknown_outcome' });
   assert.deepEqual(parsePublishResponse(manifest, { status: 201, headers: { location: 'javascript:alert(1)' }, body: '' }, url), { ok: false, reason: 'unknown_outcome' });
 });
 
@@ -103,6 +113,9 @@ test('logos: only plain shapes', () => {
     '<svg><rect style="fill:url(https://x.com)"/></svg>',
     '<!DOCTYPE svg><svg></svg>',
     '<svg><rect fill="&#x75;"/></svg>',
+    '<svg xmlns:_="http://www.w3.org/2000/svg"><_:script>alert(1)</_:script></svg>',
+    '<?xml-stylesheet href="https://evil.example/x.css"?><svg></svg>',
+    '<svg><rect/><</svg>',
   ]) assert.ok(validateSvg(bad).length > 0, bad);
 });
 
@@ -128,6 +141,11 @@ test('backlink: links that do not count', () => {
     `<meta name="robots" content="nofollow">${OK}`,
     `<meta content="noindex, follow" name="googlebot">${OK}`,
     '<p>timetopost.co</p>',
+    '<a data-x=" href=\'https://timetopost.co/\' " href="https://other.example/">x</a>',
+    '<a data-x=" rel=follow " href="https://timetopost.co/" rel="nofollow">x</a>',
+    `<meta/name="robots"/content="noindex">${OK}`,
+    '<textarea><a href="https://timetopost.co/">x</a></textarea>',
+    `<link rel="canonical" href="https://elsewhere.example/">${OK}`,
   ]) assert.equal(findLink(html, page).ok, false, html);
   assert.equal(findLink(OK, page, true, 'nofollow').ok, false);
 });

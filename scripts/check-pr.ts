@@ -41,7 +41,12 @@ const manifest = loadManifest(pr, id);
 if (!trusted) {
   if (manifest.maintainer.firstParty) fail(['maintainer.firstParty is reserved for TimeToPost maintainers']);
   if (manifest.maintainer.github.toLowerCase() !== author) fail([`maintainer.github must be your GitHub username (${author})`]);
-  if (existsSync(resolve(base, 'integrations', id, 'manifest.json')) && loadManifest(base, id).maintainer.github.toLowerCase() !== author) fail([`${id} is maintained by someone else. Open an issue to take it over.`]);
+  if (existsSync(resolve(base, 'integrations', id, 'manifest.json'))) {
+    const current = loadManifest(base, id);
+    if (current.maintainer.github.toLowerCase() !== author) fail([`${id} is maintained by someone else. Open an issue to take it over.`]);
+    // Saved user keys would follow this change, so a maintainer has to make it.
+    if (JSON.stringify(current.api) !== JSON.stringify(manifest.api) || JSON.stringify(current.auth) !== JSON.stringify(manifest.auth)) fail(['changing api or auth affects keys users already saved. Open an issue and a maintainer will make the change.']);
+  }
 }
 
 if (manifest.maintainer.firstParty) {

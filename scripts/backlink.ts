@@ -9,36 +9,71 @@ const MAX_BYTES = 3_000_000;
 const MAX_REDIRECTS = 5;
 const TAG = '(?:"[^"]*"|\'[^\']*\'|[^\'">])*';
 
-function attribute(tag: string, name: string): string | undefined {
-  const match = new RegExp(`[\\s"']${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
-  return match ? (match[2] ?? match[3] ?? match[4] ?? '') : undefined;
+// Walks attributes the way an HTML tokenizer does, so quoted text cannot pose as an attribute.
+function attributes(tag: string): Map<string, string> {
+  const found = new Map<string, string>();
+  let i = /^<[a-zA-Z][^\s/>]*/.exec(tag)?.[0].length ?? 1;
+  while (i < tag.length) {
+    while (i < tag.length && /[\s/]/.test(tag[i])) i++;
+    if (i >= tag.length || tag[i] === '>') break;
+    const start = i;
+    while (i < tag.length && !/[\s/>=]/.test(tag[i])) i++;
+    const name = tag.slice(start, i).toLowerCase();
+    if (i === start) { i++; continue; }
+    while (i < tag.length && /\s/.test(tag[i])) i++;
+    let value = '';
+    if (tag[i] === '=') {
+      i++;
+      while (i < tag.length && /\s/.test(tag[i])) i++;
+      const quote = tag[i];
+      if (quote === '"' || quote === "'") {
+        const end = tag.indexOf(quote, i + 1);
+        value = tag.slice(i + 1, end === -1 ? tag.length : end);
+        i = end === -1 ? tag.length : end + 1;
+      } else {
+        const valueStart = i;
+        while (i < tag.length && !/[\s>]/.test(tag[i])) i++;
+        value = tag.slice(valueStart, i);
+      }
+    }
+    if (!found.has(name)) found.set(name, value);
+  }
+  return found;
 }
 
 export type LinkVerdict = { ok: true; href: string } | { ok: false; reason: string };
 
 /** Looks only at server-rendered HTML, the same document a crawler gets first. */
 export function findLink(html: string, pageUrl: string, requireDofollow = REQUIRE_DOFOLLOW, robotsHeader = ''): LinkVerdict {
-  const visible = html.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<(script|style|noscript|template)\b[\s\S]*?<\/\1\s*>/gi, ' ');
+  const visible = html.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<(script|style|noscript|template|textarea|title|xmp|noembed|noframes|iframe)\b[\s\S]*?<\/\1\s*>/gi, ' ');
   if (/\b(noindex|none)\b/i.test(robotsHeader)) return { ok: false, reason: 'the page sends X-Robots-Tag noindex' };
   if (requireDofollow && /\bnofollow\b/i.test(robotsHeader)) return { ok: false, reason: 'the page sends X-Robots-Tag nofollow' };
   for (const match of visible.matchAll(new RegExp(`<meta\\b${TAG}>`, 'gi'))) {
-    const name = attribute(match[0], 'name')?.toLowerCase();
+    const meta = attributes(match[0]);
+    const name = meta.get('name')?.toLowerCase();
     if (name !== 'robots' && name !== 'googlebot') continue;
-    const content = attribute(match[0], 'content') ?? '';
+    const content = meta.get('content') ?? '';
     if (/\b(noindex|none)\b/i.test(content)) return { ok: false, reason: 'the page is marked noindex' };
     if (requireDofollow && /\bnofollow\b/i.test(content)) return { ok: false, reason: 'the page is marked nofollow' };
+  }
+  for (const match of visible.matchAll(new RegExp(`<link\\b${TAG}>`, 'gi'))) {
+    const link = attributes(match[0]);
+    if (!(link.get('rel') ?? '').toLowerCase().split(/\s+/).includes('canonical')) continue;
+    try {
+      if (!sameSite(new URL(link.get('href') ?? '', pageUrl).hostname, new URL(pageUrl).hostname)) return { ok: false, reason: 'the page declares a canonical URL on another site' };
+    } catch { return { ok: false, reason: 'the page has an invalid canonical URL' }; }
   }
   let qualified = false;
   let hidden = false;
   for (const match of visible.matchAll(new RegExp(`<a\\b${TAG}>`, 'gi'))) {
-    const href = attribute(match[0], 'href');
+    const anchor = attributes(match[0]);
+    const href = anchor.get('href');
     if (!href) continue;
     let target: URL;
     try { target = new URL(href.trim(), pageUrl); } catch { continue; }
     if (target.protocol !== 'https:' || !TARGET_HOSTS.has(target.hostname.toLowerCase())) continue;
-    const style = attribute(match[0], 'style') ?? '';
-    if (attribute(match[0], 'hidden') !== undefined || /\bhidden\b/.test(` ${match[0]} `.replace(/"[^"]*"|'[^']*'/g, '')) || /display\s*:\s*none|visibility\s*:\s*hidden/i.test(style)) { hidden = true; continue; }
-    const rel = (attribute(match[0], 'rel') ?? '').toLowerCase().split(/\s+/);
+    if (anchor.has('hidden') || /display\s*:\s*none|visibility\s*:\s*hidden/i.test(anchor.get('style') ?? '')) { hidden = true; continue; }
+    const rel = (anchor.get('rel') ?? '').toLowerCase().split(/\s+/);
     if (requireDofollow && rel.some(token => ['nofollow', 'ugc', 'sponsored'].includes(token))) { qualified = true; continue; }
     return { ok: true, href: target.toString() };
   }

@@ -39,7 +39,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-        run: gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename' > changed.txt
+        run: gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[] | .filename, (.previous_filename // empty)' > changed.txt
       - name: Validate the adapter, run its tests, verify the backlink
         env:
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}

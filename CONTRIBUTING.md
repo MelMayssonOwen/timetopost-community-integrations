@@ -81,9 +81,11 @@ CI checks the format, runs your tests and verifies the link. Then a maintainer r
 1. The site is real, and you run it or may list it.
 2. `api.host` belongs to that site, and the API call does what the listing says.
 3. The tagline and logo are accurate and do not imitate someone else.
-4. The site is not spam, adult content, gambling, or anything built to scrape or deceive.
+4. The link can be seen on the page by a person, and the site's domain is not a shared host where anyone can get a subdomain.
+5. `connect.fields` does not collect a password or key. Only `connect.secret` is encrypted.
+6. The site is not spam, adult content, gambling, or anything built to scrape or deceive.
 
-Passing CI does not guarantee a merge. A change to `api.host` or `auth` is reviewed like a new adapter. After merge, your integration ships with the next TimeToPost release that picks it up.
+Passing CI does not guarantee a merge. A change to `api` or `auth` can only be made by a maintainer, and users have to reconnect afterwards. After merge, your integration ships with the next TimeToPost release that picks it up.
 
 ## Removal
 

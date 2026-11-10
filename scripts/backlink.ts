@@ -3,7 +3,7 @@ import { isIP } from 'node:net';
 import { sameSite } from '../engine/adapter-engine.ts';
 
 /** The listing rule. Set to false to accept rel="nofollow", "ugc" or "sponsored" links too. */
-export const REQUIRE_DOFOLLOW = true;
+export const REQUIRE_DOFOLLOW = false;
 export const TARGET_HOSTS = new Set(['timetopost.co', 'www.timetopost.co']);
 const MAX_BYTES = 3_000_000;
 const MAX_REDIRECTS = 5;

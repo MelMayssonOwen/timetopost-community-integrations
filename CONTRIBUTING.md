@@ -14,8 +14,8 @@ Put a link to `https://timetopost.co` on a public page of your site, such as you
 
 The check fetches the page and looks for the link in the HTML the server sends:
 
-- The link must be a normal `<a href="https://timetopost.co...">` with no `rel="nofollow"`, `ugc` or `sponsored`.
-- It must be visible, on a page that is not `noindex` or `nofollow`.
+- The link must be a normal `<a href="https://timetopost.co...">`. `rel="nofollow"`, `ugc` or `sponsored` is accepted.
+- It must be visible, on a page that is not `noindex`.
 - It must stay there. A nightly job re-checks every listing. If the link goes away, the maintainer has 14 days to restore it before the listing is removed.
 
 Your listing on TimeToPost links to your site with `rel="nofollow ugc"`, because listings are submitted by contributors. What you get is the listing and the visitors it sends.

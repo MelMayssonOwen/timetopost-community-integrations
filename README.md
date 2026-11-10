@@ -7,7 +7,7 @@ An integration here is a small JSON file that describes one HTTPS request. There
 ## What you need
 
 1. An HTTP API on your site that creates a post, and a key or token your users can copy.
-2. A normal link to `https://timetopost.co` on a public page of your site.
+2. A visible link to `https://timetopost.co` on a public page of your site. `rel="nofollow"`, `ugc` or `sponsored` is accepted.
 3. One pull request that adds `integrations/<your-id>/`.
 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md). `integrations/_template` is a working example you can copy.

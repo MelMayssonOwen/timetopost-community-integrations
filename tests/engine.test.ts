@@ -125,12 +125,33 @@ test('backlink: a plain link passes', () => {
   assert.equal(findLink('<a rel="noopener" href="https://timetopost.co">x</a>', 'https://a.com/').ok, true);
 });
 
-test('backlink: links that do not count', () => {
+test('backlink: nofollow, ugc and sponsored pass when not required', () => {
   const page = 'https://a.com/';
   for (const html of [
     '<a rel="nofollow" href="https://timetopost.co/">x</a>',
     '<a rel="noopener UGC" href="https://timetopost.co/">x</a>',
     '<a rel=sponsored href=https://timetopost.co/>x</a>',
+    `<meta name="robots" content="nofollow">${OK}`,
+    '<a data-x=" rel=follow " href="https://timetopost.co/" rel="nofollow">x</a>',
+  ]) assert.equal(findLink(html, page).ok, true, html);
+  assert.equal(findLink(OK, page, false, 'nofollow').ok, true);
+});
+
+test('backlink: nofollow is refused only when required', () => {
+  const page = 'https://a.com/';
+  for (const html of [
+    '<a rel="nofollow" href="https://timetopost.co/">x</a>',
+    '<a rel="noopener UGC" href="https://timetopost.co/">x</a>',
+    '<a rel=sponsored href=https://timetopost.co/>x</a>',
+    `<meta name="robots" content="nofollow">${OK}`,
+    '<a data-x=" rel=follow " href="https://timetopost.co/" rel="nofollow">x</a>',
+  ]) assert.equal(findLink(html, page, true).ok, false, html);
+  assert.equal(findLink(OK, page, true, 'nofollow').ok, false);
+});
+
+test('backlink: links that do not count', () => {
+  const page = 'https://a.com/';
+  for (const html of [
     '<a href="https://timetopost.co.evil.com/">x</a>',
     '<a href="http://timetopost.co/">x</a>',
     '<!-- <a href="https://timetopost.co/">x</a> -->',
@@ -138,14 +159,11 @@ test('backlink: links that do not count', () => {
     '<a hidden href="https://timetopost.co/">x</a>',
     '<a style="display:none" href="https://timetopost.co/">x</a>',
     '<a data-href="https://timetopost.co/" href="/x">x</a>',
-    `<meta name="robots" content="nofollow">${OK}`,
     `<meta content="noindex, follow" name="googlebot">${OK}`,
     '<p>timetopost.co</p>',
     '<a data-x=" href=\'https://timetopost.co/\' " href="https://other.example/">x</a>',
-    '<a data-x=" rel=follow " href="https://timetopost.co/" rel="nofollow">x</a>',
     `<meta/name="robots"/content="noindex">${OK}`,
     '<textarea><a href="https://timetopost.co/">x</a></textarea>',
     `<link rel="canonical" href="https://elsewhere.example/">${OK}`,
   ]) assert.equal(findLink(html, page).ok, false, html);
-  assert.equal(findLink(OK, page, true, 'nofollow').ok, false);
 });
